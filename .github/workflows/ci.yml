@@ -42,3 +42,6 @@ jobs:
 
     - name: Testleri çalıştır
       run: go test -v ./...
+
+    - name: End-to-End Test
+      run: go test -v e2e_test.go
