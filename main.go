@@ -30,16 +30,33 @@ func main() {
 	} else {
 		fmt.Println("Subject'ler başarıyla yüklendi.")
 	}
+    if err := CreateUserDB(); err != nil {
+	fmt.Println("Kullanıcı tablosu oluşturulamadı:", err)
+}
 	fmt.Println("Veritabanı bağlantısı başarılı!")
 	fmt.Println("http://localhost:3000")
+
 	router :=chi.NewRouter()
 	router.Use(middleware.Logger)
-	router.Get("/subjects",GetSubject)
-	router.Post("/subjects",PostSubject)
-	router.Delete("/subjects/{id}",DeleteSubject)
-	router.Put("/subjects/{id}",PutSubject)
-	router.Get("/subjects/{id}",GetbyID)
-	router.Delete("/subjects", DeleteAllSubjects)
+	router.Post("/register", RegisterHandler)
+	router.Post("/login", loginHandler)
+	
+
+	
+
+    router.Group(func(r chi.Router) {
+	r.Use(NewMiddleware) 
+
+	r.Get("/subjects",GetSubject)
+	r.Post("/subjects",PostSubject)
+	r.Delete("/subjects/{id}",DeleteSubject)
+	r.Put("/subjects/{id}",PutSubject)
+	r.Get("/subjects/{id}",GetbyID)
+	r.Delete("/subjects", DeleteAllSubjects)
+})
+
+	
+	
 	http.ListenAndServe(":3000",router)
 	
 

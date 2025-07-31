@@ -18,6 +18,21 @@ func ConnectDB() error{
 	return nil
 } 
 
+func CreateUserDB() error{
+
+    createUserTable:= `CREATE TABLE IF NOT EXISTS users(
+	     id TEXT PRIMARY KEY,
+         username TEXT UNIQUE NOT NULL,
+         password TEXT NOT NULL
+	);`
+    
+	_, err:= DB.Exec(context.Background(),createUserTable)
+	if err!=nil{
+		return fmt.Errorf("Tablo oluşturulamadı: %w", err)
+	}
+	fmt.Println("kullanıcı tablosu uygun")
+	return nil
+}
 func CreateDB() error{
 	createTable:=` CREATE TABLE IF NOT EXISTS subject(
 		id TEXT PRIMARY KEY,
@@ -114,3 +129,5 @@ func GetSubjectByID(conn *pgxpool.Pool, id string) (Subject, error) {
 	}
 	return s, nil
 }
+
+
