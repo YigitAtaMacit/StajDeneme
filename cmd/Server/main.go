@@ -34,7 +34,6 @@ func main() {
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
-
 	router.Post("/register", auth.RegisterHandler)
 	router.Post("/login", auth.LoginHandler)
 

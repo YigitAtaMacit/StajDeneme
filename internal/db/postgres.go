@@ -32,7 +32,7 @@ func CreateUserDB() error {
 	)`
 	_, err := DB.Exec(context.Background(), createTable)
 	if err != nil {
-		return fmt.Errorf("Kullanıcı tablosu oluşturulamadı: %w", err)
+		return fmt.Errorf("kullanıcı tablosu oluşturulamadı: %w", err)
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func GetAllSubjects(conn *pgxpool.Pool) ([]Subject, error) {
 		var s Subject
 		err := rows.Scan(&s.ID, &s.Name, &s.Age)
 		if err != nil {
-			return nil, fmt.Errorf("Veri okunamadı: %w", err)
+			return nil, fmt.Errorf("veri okunamadı: %w", err)
 		}
 		subjects = append(subjects, s)
 	}
@@ -107,6 +107,14 @@ func DeleteSubjectByID(conn *pgxpool.Pool, id string) error {
 	}
 	if x.RowsAffected() == 0 {
 		return fmt.Errorf("ID bulunamadı: %s", id)
+	}
+	return nil
+}
+
+func DeleteAllSubjects(conn *pgxpool.Pool) error {
+	_, err := conn.Exec(context.Background(), "DELETE FROM subject")
+	if err != nil {
+		return fmt.Errorf("tüm kayıtlar silinemedi: %w", err)
 	}
 	return nil
 }
