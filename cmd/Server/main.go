@@ -26,11 +26,6 @@ func main() {
 	if err := db.CreateUserDB(); err != nil {
 		fmt.Println("Kullanıcı tablosu oluşturulamadı:", err)
 	}
-	if err := subject.LoadSubjectsFromDB(); err != nil {
-		fmt.Println("Subject'ler yüklenemedi:", err)
-	} else {
-		fmt.Println("Subject'ler başarıyla yüklendi.")
-	}
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
