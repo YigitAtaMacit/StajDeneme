@@ -7,9 +7,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/YigitAtaMacit/StajDeneme/internal/service"
 	"github.com/YigitAtaMacit/StajDeneme/internal/auth"
 	"github.com/YigitAtaMacit/StajDeneme/internal/db"
 	"github.com/YigitAtaMacit/StajDeneme/internal/subject"
+	
 )
 
 func main() {
@@ -27,22 +29,31 @@ func main() {
 		fmt.Println("Kullanıcı tablosu oluşturulamadı:", err)
 	}
 
-	router := chi.NewRouter()
-	router.Use(middleware.Logger)
-	router.Post("/register", auth.RegisterHandler)
-	router.Post("/login", auth.LoginHandler)
 
-	router.Group(func(r chi.Router) {
+	subjectRepo := db.NewSubjectRepo(db.DB)
+	subjectService := service.NewSubjectService(subjectRepo)
+	subjectHandler := subject.NewSubjectHandler(subjectService)
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+
+
+	r.Post("/register", auth.RegisterHandler)
+	r.Post("/login", auth.LoginHandler)
+
+	
+	r.Route("/subjects", func(r chi.Router) {
 		r.Use(auth.NewMiddleware)
 
-		r.Get("/subjects", subject.GetSubject)
-		r.Post("/subjects", subject.PostSubject)
-		r.Delete("/subjects/{id}", subject.DeleteSubject)
-		r.Put("/subjects/{id}", subject.PutSubject)
-		r.Get("/subjects/{id}", subject.GetByID)
-		r.Delete("/subjects", subject.DeleteAllSubjects)
+		r.Get("/", subjectHandler.GetSubject)
+		r.Get("/{id}", subjectHandler.GetByID)
+		r.Post("/", subjectHandler.PostSubject)
+		r.Put("/{id}", subjectHandler.PutSubject)
+		r.Delete("/{id}", subjectHandler.DeleteSubject)
+		r.Delete("/", subjectHandler.DeleteAllSubjects)
 	})
 
-	fmt.Println("http://localhost:3000")
-	http.ListenAndServe(":3000", router)
+
+	fmt.Println("Server başlatıldı: http://localhost:3000")
+	http.ListenAndServe(":3000", r)
 }

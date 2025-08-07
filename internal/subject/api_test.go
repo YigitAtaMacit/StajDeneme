@@ -2,223 +2,198 @@ package subject_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-    "context"
-	"fmt"
-	"github.com/YigitAtaMacit/StajDeneme/internal/auth"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/YigitAtaMacit/StajDeneme/internal/db"
 	"github.com/YigitAtaMacit/StajDeneme/internal/subject"
-	"github.com/go-chi/chi/v5"
 )
 
-func setupRouter() http.Handler  {
-
-	_ = db.ConnectDB()
-	_ = db.CreateDB()
-
-	r := chi.NewRouter()
-
-	r.Post("/register", auth.RegisterHandler)
-	r.Post("/login", auth.LoginHandler)
-
-	r.Group(func(r chi.Router) {
-		r.Use(auth.NewMiddleware)
-		r.Get("/subjects", subject.GetSubject)
-		r.Post("/subjects", subject.PostSubject)
-		r.Get("/subjects/{id}", subject.GetByID)
-		r.Put("/subjects/{id}", subject.PutSubject)
-		r.Delete("/subjects/{id}", subject.DeleteSubject)
-		r.Delete("/subjects", subject.DeleteAllSubjects)
-	})
-	return r
+type MockSubjectService struct {
+	GetAllSubjectsFunc func(ctx context.Context) ([]db.Subject, error)
+	AddSubjectFunc     func(ctx context.Context, s db.Subject) error
+	UpdateFunc         func(ctx context.Context, s db.Subject) error
+	DeleteFunc         func(ctx context.Context, id string) error
+	DeleteAllFunc      func(ctx context.Context) error
+	GetSubjectFunc     func(ctx context.Context, id string) (db.Subject, error)
 }
 
-func TestUnauthorizedAccess(t *testing.T) {
-	router := setupRouter()
-
-	req := httptest.NewRequest("GET", "/subjects", nil)
-	w := httptest.NewRecorder()
-
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("JWT olmadan 401 bekleniyordu, gelen: %d", w.Code)
+func (m *MockSubjectService) GetAllSubjects(ctx context.Context) ([]db.Subject, error) {
+	if m.GetAllSubjectsFunc != nil {
+		return m.GetAllSubjectsFunc(ctx)
 	}
+	return nil, nil
 }
 
-func TestPostSubjectAPI(t *testing.T) {
-	router := setupRouter()
-
-	_, _ = db.DB.Exec(context.Background(), "DELETE FROM users")
-	_, _ = db.DB.Exec(context.Background(), "DELETE FROM subject")
-
-
-	token := registerAndLogin(t, router, "apiuser", "apipass")
-
-
-	subject := db.Subject{
-    ID:   "api-1",
-    Name: "Test",
-    Age:  33,
-    }
-	payload, _ := json.Marshal(subject)
-
-	req := httptest.NewRequest("POST", "/subjects", bytes.NewBuffer(payload))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Errorf("Beklenen 201 Created, gelen: %d", w.Code)
+func (m *MockSubjectService) AddSubject(ctx context.Context, s db.Subject) error {
+	if m.AddSubjectFunc != nil {
+		return m.AddSubjectFunc(ctx, s)
 	}
-
-	var created db.Subject
-	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
-		t.Fatalf("Yanıt çözülemedi: %v", err)
-	}
-	if created.ID != "api-1" || created.Name != "Test" || created.Age != 33 {
-		t.Errorf("Yanıt verisi beklenenden farklı: %+v", created)
-	}
+	return nil
 }
 
-/* func TestGetSubjectByIDAPI(t *testing.T) {
-	router := setupRouter()
-	
-
-	token := registerAndLogin(t, router, "getiduser", "getidpass")
-
-	_ = db.InsertSubject(db.DB, db.Subject{ID: "id-20", Name: "Zeynep", Age: 25})
-
-	
-	req := httptest.NewRequest("GET", "/subjects/id-20", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("Beklenen 200 OK, gelen: %d", w.Code)
+func (m *MockSubjectService) Update(ctx context.Context, s db.Subject) error {
+	if m.UpdateFunc != nil {
+		return m.UpdateFunc(ctx, s)
 	}
-}
-func TestPutSubjectAPI(t *testing.T) {
-	router := setupRouter()
-
-	token := registerAndLogin(t, router, "putuser", "putpass")
-
-	_ = db.InsertSubject(db.DB, db.Subject{ID: "put-id", Name: "Ayşe", Age: 20})
-
-	updated := map[string]interface{}{
-		"name": "Yeni Ayşe ",
-		"age":  28,
-	}
-	payload, _ := json.Marshal(updated)
-
-	req := httptest.NewRequest("PUT", "/subjects/put-id", bytes.NewBuffer(payload))
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("Güncelleme başarısız. Kod: %d", w.Code)
-	}
-}
-func TestDeleteSubjectAPI(t *testing.T) {
-	router := setupRouter()
-
-	token := registerAndLogin(t, router, "deleteuser", "deletepass")
-
-	_ = db.InsertSubject(db.DB, db.Subject{ID: "del-id", Name: "Silinecek", Age: 99})
-
-	req := httptest.NewRequest("DELETE", "/subjects/del-id", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("Silme başarısız. Kod: %d", w.Code)
-	}
+	return nil
 }
 
-
-func TestGetSubjectsAPI(t *testing.T) {
-	router := setupRouter()
-	token := registerAndLogin(t, router, "getuser", "getpass")
-    
-
-    sub := db.Subject{ID: "get-id", Name: "Ali", Age: 30}
-	_ = db.InsertSubject(db.DB, sub)
-
-	req := httptest.NewRequest("GET", "/subjects", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-
-	if w.Code != http.StatusOK {
-		t.Errorf("GET /subjects başarısız. Beklenen 200, gelen: %d", w.Code)
+func (m *MockSubjectService) Delete(ctx context.Context, id string) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, id)
 	}
+	return nil
 }
 
-func TestDeleteAllSubjectsAPI(t *testing.T) {
-	router := setupRouter()
-
-	token := registerAndLogin(t, router, "deletetestuser", "deletetestpass")
-
-	_ = db.InsertSubject(db.DB, db.Subject{ID: "s1", Name: "A", Age: 20})
-	_ = db.InsertSubject(db.DB, db.Subject{ID: "s2", Name: "B", Age: 30})
-
-	req := httptest.NewRequest("DELETE", "/subjects", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("Tüm kayıtları silme başarısız. Kod: %d", w.Code)
+func (m *MockSubjectService) DeleteAll(ctx context.Context) error {
+	if m.DeleteAllFunc != nil {
+		return m.DeleteAllFunc(ctx)
 	}
-
-	
-	remaining, err := db.GetAllSubjects(db.DB)
-	if err != nil {
-		t.Fatalf("Kontrol sırasında hata: %v", err)
-	}
-	if len(remaining) != 0 {
-		t.Errorf("Tüm kayıtlar silinmedi, kalan: %d", len(remaining))
-	}
-} */
-
-
-func registerAndLogin(t *testing.T, router http.Handler, username, password string) string {
-	_, _ = db.DB.Exec(context.Background(), "DELETE FROM users WHERE username=$1", username)
-
-	registerBody := fmt.Sprintf(`{"username":"%s", "password":"%s"}`, username, password)
-	req1 := httptest.NewRequest("POST", "/register", bytes.NewBuffer([]byte(registerBody)))
-	req1.Header.Set("Content-Type", "application/json")
-	w1 := httptest.NewRecorder()
-	router.ServeHTTP(w1, req1)
-
-	loginBody := fmt.Sprintf(`{"username":"%s", "password":"%s"}`, username, password)
-	req2 := httptest.NewRequest("POST", "/login", bytes.NewBuffer([]byte(loginBody)))
-	req2.Header.Set("Content-Type", "application/json")
-	w2 := httptest.NewRecorder()
-	router.ServeHTTP(w2, req2)
-
-	if w2.Code != http.StatusOK {
-		t.Fatalf("Login başarısız. Kod: %d", w2.Code)
-	}
-	var response struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(w2.Body).Decode(&response); err != nil {
-		t.Fatalf("Token parse hatası: %v", err)
-	}
-	return response.Token
+	return nil
 }
 
+func (m *MockSubjectService) GetSubject(ctx context.Context, id string) (db.Subject, error) {
+	if m.GetSubjectFunc != nil {
+		return m.GetSubjectFunc(ctx, id)
+	}
+	return db.Subject{}, nil
+}
 
+func TestGetSubject(t *testing.T) {
+	mockService := &MockSubjectService{
+		GetAllSubjectsFunc: func(ctx context.Context) ([]db.Subject, error) {
+			return []db.Subject{
+				{ID: "1", Name: "Test", Age: 30},
+			}, nil
+		},
+	}
+	handler := subject.NewSubjectHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodGet, "/subjects", nil)
+	rr := httptest.NewRecorder()
+
+	handler.GetSubject(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var subjects []db.Subject
+	err := json.NewDecoder(rr.Body).Decode(&subjects)
+	assert.NoError(t, err)
+	assert.Len(t, subjects, 1)
+	assert.Equal(t, "Test", subjects[0].Name)
+}
+
+func TestPostSubject(t *testing.T) {
+	mockService := &MockSubjectService{
+		AddSubjectFunc: func(ctx context.Context, s db.Subject) error {
+			return nil
+		},
+	}
+	handler := subject.NewSubjectHandler(mockService)
+
+	sub := db.Subject{ID: "123", Name: "New", Age: 20}
+	body, _ := json.Marshal(sub)
+
+	req := httptest.NewRequest(http.MethodPost, "/subjects", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	handler.PostSubject(rr, req)
+
+	assert.Equal(t, http.StatusCreated, rr.Code)
+
+	var result db.Subject
+	err := json.NewDecoder(rr.Body).Decode(&result)
+	assert.NoError(t, err)
+	assert.Equal(t, "New", result.Name)
+}
+
+func TestPutSubject(t *testing.T) {
+	mockService := &MockSubjectService{
+		UpdateFunc: func(ctx context.Context, s db.Subject) error {
+			assert.Equal(t, "999", s.ID)
+			return nil
+		},
+	}
+	handler := subject.NewSubjectHandler(mockService)
+
+	sub := db.Subject{Name: "Updated", Age: 40}
+	body, _ := json.Marshal(sub)
+
+	req := httptest.NewRequest(http.MethodPut, "/subjects/999", bytes.NewReader(body))
+	ctx := chi.NewRouteContext()
+	ctx.URLParams.Add("id", "999")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
+
+	rr := httptest.NewRecorder()
+	handler.PutSubject(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestDeleteSubject(t *testing.T) {
+	mockService := &MockSubjectService{
+		DeleteFunc: func(ctx context.Context, id string) error {
+			assert.Equal(t, "abc", id)
+			return nil
+		},
+	}
+	handler := subject.NewSubjectHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodDelete, "/subjects/abc", nil)
+	ctx := chi.NewRouteContext()
+	ctx.URLParams.Add("id", "abc")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
+
+	rr := httptest.NewRecorder()
+	handler.DeleteSubject(rr, req)
+
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+}
+
+func TestDeleteAllSubjects(t *testing.T) {
+	mockService := &MockSubjectService{
+		DeleteAllFunc: func(ctx context.Context) error {
+			return nil
+		},
+	}
+	handler := subject.NewSubjectHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodDelete, "/subjects", nil)
+	rr := httptest.NewRecorder()
+
+	handler.DeleteAllSubjects(rr, req)
+
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+}
+
+func TestGetSubjectByID(t *testing.T) {
+	mockService := &MockSubjectService{
+		GetSubjectFunc: func(ctx context.Context, id string) (db.Subject, error) {
+			assert.Equal(t, "456", id)
+			return db.Subject{ID: "456", Name: "Matematik", Age: 25}, nil
+		},
+	}
+	handler := subject.NewSubjectHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodGet, "/subjects/456", nil)
+	ctx := chi.NewRouteContext()
+	ctx.URLParams.Add("id", "456")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
+
+	rr := httptest.NewRecorder()
+	handler.GetByID(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var result db.Subject
+	err := json.NewDecoder(rr.Body).Decode(&result)
+	assert.NoError(t, err)
+	assert.Equal(t, "Matematik", result.Name)
+}

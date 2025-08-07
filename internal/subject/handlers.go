@@ -3,55 +3,54 @@ package subject
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/YigitAtaMacit/StajDeneme/internal/db"
 	"github.com/YigitAtaMacit/StajDeneme/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
-var svc = service.NewSubjectService(db.NewSubjectRepo(db.DB))
+type Handler struct {
+	Service service.SubjectService
+}
 
-func GetSubject(w http.ResponseWriter, r *http.Request) {
-	subjectList, err := svc.GetAll(r.Context())
+func NewSubjectHandler(s service.SubjectService) *Handler {
+	return &Handler{Service: s}
+}
+
+func (h *Handler) GetSubject(w http.ResponseWriter, r *http.Request) {
+	subjectList, err := h.Service.GetAllSubjects(r.Context())
 	if err != nil {
 		http.Error(w, "Veritabanından veri alınamadı: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(subjectList)
+	jsonResponse(w, http.StatusOK, subjectList)
 }
 
-func GetByID(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	subject, err := svc.GetSubject(r.Context(), id)
+	subject, err := h.Service.GetSubject(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Subject bulunamadı: "+err.Error(), http.StatusNotFound)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(subject)
+	jsonResponse(w, http.StatusOK, subject)
 }
 
-func PostSubject(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PostSubject(w http.ResponseWriter, r *http.Request) {
 	var s db.Subject
 	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
 		http.Error(w, "Geçersiz veri", http.StatusBadRequest)
 		return
 	}
-	if s.ID == "" {
-		http.Error(w, "Boş ID", http.StatusBadRequest)
-		return
-	}
-	if err := svc.AddSubject(r.Context(), s); err != nil {
+	if err := h.Service.AddSubject(r.Context(), s); err != nil {
 		http.Error(w, "Kayıt eklenemedi: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(s)
+	jsonResponse(w, http.StatusCreated, s)
 }
 
-func PutSubject(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PutSubject(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var s db.Subject
 	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
@@ -59,27 +58,38 @@ func PutSubject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.ID = id
-	if err := svc.Update(r.Context(), s); err != nil {
-		http.Error(w, "Güncelleme başarısız: "+err.Error(), http.StatusInternalServerError)
+
+	err := h.Service.Update(r.Context(), s)
+	if err != nil {
+		if strings.Contains(err.Error(), "ID bulunamadı") {
+			http.Error(w, "Kayıt bulunamadı", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Veritabanı hatası: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s)
+	jsonResponse(w, http.StatusOK, s)
 }
 
-func DeleteSubject(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteSubject(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := svc.Delete(r.Context(), id); err != nil {
+	if err := h.Service.Delete(r.Context(), id); err != nil {
 		http.Error(w, "Subject silinemedi: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func DeleteAllSubjects(w http.ResponseWriter, r *http.Request) {
-	if err := svc.DeleteAll(r.Context()); err != nil {
+func (h *Handler) DeleteAllSubjects(w http.ResponseWriter, r *http.Request) {
+	if err := h.Service.DeleteAll(r.Context()); err != nil {
 		http.Error(w, "Kayıtlar silinemedi: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func jsonResponse(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(payload)
 }

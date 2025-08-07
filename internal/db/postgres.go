@@ -55,4 +55,3 @@ func CloseDB() {
 		DB.Close()
 	}
 }
-

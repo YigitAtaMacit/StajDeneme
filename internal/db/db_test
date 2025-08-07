@@ -1,0 +1,95 @@
+package db_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/YigitAtaMacit/StajDeneme/internal/db"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+)
+
+var testRepo db.SubjectRepository
+
+func init() {
+	err := db.ConnectDB()
+	if err != nil {
+		panic("Veritabanına bağlanılamadı: " + err.Error())
+	}
+	testRepo = db.NewSubjectRepo(db.DB)
+}
+
+func TestInsertAndGetSubjectByID(t *testing.T) {
+	ctx := context.Background()
+
+	sub := db.Subject{
+		ID:   uuid.New().String(),
+		Name: "Test Subject",
+		Age:  25,
+	}
+
+	err := testRepo.InsertSubject(ctx, sub)
+	assert.NoError(t, err)
+
+	result, err := testRepo.GetSubjectByID(ctx, sub.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, sub.Name, result.Name)
+	assert.Equal(t, sub.Age, result.Age)
+}
+
+func TestUpdateSubject(t *testing.T) {
+	ctx := context.Background()
+
+	sub := db.Subject{
+		ID:   uuid.New().String(),
+		Name: "Old Name",
+		Age:  20,
+	}
+	_ = testRepo.InsertSubject(ctx, sub)
+
+	sub.Name = "New Name"
+	sub.Age = 30
+
+	err := testRepo.UpdateSubject(ctx, sub)
+	assert.NoError(t, err)
+
+	updated, err := testRepo.GetSubjectByID(ctx, sub.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "New Name", updated.Name)
+	assert.Equal(t, 30, updated.Age)
+}
+
+func TestDeleteAllSubjectsAndGetAll(t *testing.T) {
+	ctx := context.Background()
+
+	_ = testRepo.DeleteAllSubjects(ctx)
+
+	sub1 := db.Subject{ID: uuid.New().String(), Name: "A", Age: 10}
+	sub2 := db.Subject{ID: uuid.New().String(), Name: "B", Age: 20}
+
+	_ = testRepo.InsertSubject(ctx, sub1)
+	_ = testRepo.InsertSubject(ctx, sub2)
+
+	all, err := testRepo.GetAllSubjects(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, all, 2)
+
+	err = testRepo.DeleteAllSubjects(ctx)
+	assert.NoError(t, err)
+
+	all, _ = testRepo.GetAllSubjects(ctx)
+	assert.Len(t, all, 0)
+}
+
+func TestDeleteSubjectByID(t *testing.T) {
+	ctx := context.Background()
+
+	sub := db.Subject{ID: uuid.New().String(), Name: "ToDelete", Age: 50}
+	_ = testRepo.InsertSubject(ctx, sub)
+
+	err := testRepo.DeleteSubjectByID(ctx, sub.ID)
+	assert.NoError(t, err)
+
+	_, err = testRepo.GetSubjectByID(ctx, sub.ID)
+	assert.Error(t, err) // silinmiş olduğu için hata beklenir
+}
