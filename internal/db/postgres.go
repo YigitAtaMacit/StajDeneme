@@ -8,9 +8,12 @@ import (
 )
 
 type Subject struct {
-	ID   string
-	Name string
-	Age  int
+	ID          string `json:"id"`
+	UserID      string `json:"userId"`
+	DoctorName  string `json:"doctorName"`
+	Date        string `json:"date"`
+	Time        string `json:"time"`
+	Description string `json:"description"`
 }
 
 var DB *pgxpool.Pool
@@ -38,10 +41,13 @@ func CreateUserDB() error {
 }
 
 func CreateDB() error {
-	createTable := `CREATE TABLE IF NOT EXISTS subject (
+	createTable := `CREATE TABLE IF NOT EXISTS appointments (
 		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		age INT NOT NULL
+        user_id TEXT NOT NULL,
+        doctor_name TEXT NOT NULL,
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        description TEXT
 	)`
 	_, err := DB.Exec(context.Background(), createTable)
 	if err != nil {

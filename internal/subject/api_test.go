@@ -15,6 +15,7 @@ import (
 	"github.com/YigitAtaMacit/StajDeneme/internal/subject"
 )
 
+
 type MockSubjectService struct {
 	GetAllSubjectsFunc func(ctx context.Context) ([]db.Subject, error)
 	AddSubjectFunc     func(ctx context.Context, s db.Subject) error
@@ -30,35 +31,30 @@ func (m *MockSubjectService) GetAllSubjects(ctx context.Context) ([]db.Subject, 
 	}
 	return nil, nil
 }
-
 func (m *MockSubjectService) AddSubject(ctx context.Context, s db.Subject) error {
 	if m.AddSubjectFunc != nil {
 		return m.AddSubjectFunc(ctx, s)
 	}
 	return nil
 }
-
 func (m *MockSubjectService) Update(ctx context.Context, s db.Subject) error {
 	if m.UpdateFunc != nil {
 		return m.UpdateFunc(ctx, s)
 	}
 	return nil
 }
-
 func (m *MockSubjectService) Delete(ctx context.Context, id string) error {
 	if m.DeleteFunc != nil {
 		return m.DeleteFunc(ctx, id)
 	}
 	return nil
 }
-
 func (m *MockSubjectService) DeleteAll(ctx context.Context) error {
 	if m.DeleteAllFunc != nil {
 		return m.DeleteAllFunc(ctx)
 	}
 	return nil
 }
-
 func (m *MockSubjectService) GetSubject(ctx context.Context, id string) (db.Subject, error) {
 	if m.GetSubjectFunc != nil {
 		return m.GetSubjectFunc(ctx, id)
@@ -70,7 +66,14 @@ func TestGetSubject(t *testing.T) {
 	mockService := &MockSubjectService{
 		GetAllSubjectsFunc: func(ctx context.Context) ([]db.Subject, error) {
 			return []db.Subject{
-				{ID: "1", Name: "Test", Age: 30},
+				{
+					ID:          "1",
+					UserID:      "efe",
+					DoctorName:  "Dr. Test",
+					Date:        "2025-08-20",
+					Time:        "10:30",
+					Description: "Kontrol",
+				},
 			}, nil
 		},
 	}
@@ -87,21 +90,30 @@ func TestGetSubject(t *testing.T) {
 	err := json.NewDecoder(rr.Body).Decode(&subjects)
 	assert.NoError(t, err)
 	assert.Len(t, subjects, 1)
-	assert.Equal(t, "Test", subjects[0].Name)
+	assert.Equal(t, "Dr. Test", subjects[0].DoctorName)
 }
 
 func TestPostSubject(t *testing.T) {
 	mockService := &MockSubjectService{
 		AddSubjectFunc: func(ctx context.Context, s db.Subject) error {
+
 			return nil
 		},
 	}
 	handler := subject.NewSubjectHandler(mockService)
 
-	sub := db.Subject{ID: "123", Name: "New", Age: 20}
+	sub := db.Subject{
+		ID:          "123",
+		UserID:      "efe",
+		DoctorName:  "Dr. New",
+		Date:        "2025-08-21",
+		Time:        "09:00",
+		Description: "İlk muayene",
+	}
 	body, _ := json.Marshal(sub)
 
 	req := httptest.NewRequest(http.MethodPost, "/subjects", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
 	handler.PostSubject(rr, req)
@@ -111,22 +123,32 @@ func TestPostSubject(t *testing.T) {
 	var result db.Subject
 	err := json.NewDecoder(rr.Body).Decode(&result)
 	assert.NoError(t, err)
-	assert.Equal(t, "New", result.Name)
+	assert.Equal(t, "Dr. New", result.DoctorName)
 }
 
 func TestPutSubject(t *testing.T) {
 	mockService := &MockSubjectService{
 		UpdateFunc: func(ctx context.Context, s db.Subject) error {
 			assert.Equal(t, "999", s.ID)
+			assert.Equal(t, "Dr. Updated", s.DoctorName)
 			return nil
 		},
 	}
 	handler := subject.NewSubjectHandler(mockService)
 
-	sub := db.Subject{Name: "Updated", Age: 40}
+	sub := db.Subject{
+		UserID:      "efe",
+		DoctorName:  "Dr. Updated",
+		Date:        "2025-08-22",
+		Time:        "14:45",
+		Description: "Takip",
+	}
 	body, _ := json.Marshal(sub)
 
 	req := httptest.NewRequest(http.MethodPut, "/subjects/999", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+
 	ctx := chi.NewRouteContext()
 	ctx.URLParams.Add("id", "999")
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, ctx))
@@ -177,7 +199,14 @@ func TestGetSubjectByID(t *testing.T) {
 	mockService := &MockSubjectService{
 		GetSubjectFunc: func(ctx context.Context, id string) (db.Subject, error) {
 			assert.Equal(t, "456", id)
-			return db.Subject{ID: "456", Name: "Matematik", Age: 25}, nil
+			return db.Subject{
+				ID:          "456",
+				UserID:      "efe",
+				DoctorName:  "Dr. Cardiology",
+				Date:        "2025-08-23",
+				Time:        "11:15",
+				Description: "Tahlil",
+			}, nil
 		},
 	}
 	handler := subject.NewSubjectHandler(mockService)
@@ -195,5 +224,5 @@ func TestGetSubjectByID(t *testing.T) {
 	var result db.Subject
 	err := json.NewDecoder(rr.Body).Decode(&result)
 	assert.NoError(t, err)
-	assert.Equal(t, "Matematik", result.Name)
+	assert.Equal(t, "Dr. Cardiology", result.DoctorName)
 }

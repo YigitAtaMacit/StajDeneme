@@ -11,13 +11,12 @@ import (
 )
 
 type MockSubjectRepo struct {
-	InsertCalled      bool
-	GetAllCalled      bool
-	DeleteCalled      bool
-	UpdateCalled      bool
-	DeleteAllCalled   bool
-	GetByIDCalled     bool
-
+	InsertCalled    bool
+	GetAllCalled    bool
+	DeleteCalled    bool
+	UpdateCalled    bool
+	DeleteAllCalled bool
+	GetByIDCalled   bool
 
 	ShouldFail bool
 }
@@ -29,17 +28,22 @@ func (m *MockSubjectRepo) InsertSubject(ctx context.Context, s db.Subject) error
 	}
 	return nil
 }
-
 func (m *MockSubjectRepo) GetAllSubjects(ctx context.Context) ([]db.Subject, error) {
 	m.GetAllCalled = true
 	if m.ShouldFail {
 		return nil, errors.New("get all failed")
 	}
 	return []db.Subject{
-		{ID: "1", Name: "Test", Age: 25},
+		{
+			ID:          "1",
+			UserID:      "efe",
+			DoctorName:  "Dr. Test",
+			Date:        "2025-08-10",
+			Time:        "10:30",
+			Description: "Kontrol",
+		},
 	}, nil
 }
-
 func (m *MockSubjectRepo) DeleteSubjectByID(ctx context.Context, id string) error {
 	m.DeleteCalled = true
 	if m.ShouldFail {
@@ -47,7 +51,6 @@ func (m *MockSubjectRepo) DeleteSubjectByID(ctx context.Context, id string) erro
 	}
 	return nil
 }
-
 func (m *MockSubjectRepo) UpdateSubject(ctx context.Context, s db.Subject) error {
 	m.UpdateCalled = true
 	if m.ShouldFail {
@@ -55,7 +58,6 @@ func (m *MockSubjectRepo) UpdateSubject(ctx context.Context, s db.Subject) error
 	}
 	return nil
 }
-
 func (m *MockSubjectRepo) DeleteAllSubjects(ctx context.Context) error {
 	m.DeleteAllCalled = true
 	if m.ShouldFail {
@@ -63,21 +65,33 @@ func (m *MockSubjectRepo) DeleteAllSubjects(ctx context.Context) error {
 	}
 	return nil
 }
-
 func (m *MockSubjectRepo) GetSubjectByID(ctx context.Context, id string) (db.Subject, error) {
 	m.GetByIDCalled = true
 	if m.ShouldFail {
 		return db.Subject{}, errors.New("get by id failed")
 	}
-	return db.Subject{ID: id, Name: "Example", Age: 30}, nil
+	return db.Subject{
+		ID:          id,
+		UserID:      "efe",
+		DoctorName:  "Dr. Example",
+		Date:        "2025-08-11",
+		Time:        "09:15",
+		Description: "Muayene",
+	}, nil
 }
-
 
 func TestAddSubject_Success(t *testing.T) {
 	mockRepo := &MockSubjectRepo{}
 	svc := service.NewSubjectService(mockRepo)
 
-	sub := db.Subject{ID: "abc", Name: "Yigit", Age: 22}
+	sub := db.Subject{
+		ID:          "abc",
+		UserID:      "efe",
+		DoctorName:  "Dr. House",
+		Date:        "2025-08-12",
+		Time:        "13:00",
+		Description: "Kontrol randevusu",
+	}
 	err := svc.AddSubject(context.Background(), sub)
 
 	assert.NoError(t, err)
@@ -88,7 +102,14 @@ func TestAddSubject_EmptyID(t *testing.T) {
 	mockRepo := &MockSubjectRepo{}
 	svc := service.NewSubjectService(mockRepo)
 
-	sub := db.Subject{ID: "", Name: "Yigit", Age: 22}
+	sub := db.Subject{
+		ID:          "",
+		UserID:      "efe",
+		DoctorName:  "Dr. House",
+		Date:        "2025-08-12",
+		Time:        "13:00",
+		Description: "Kontrol randevusu",
+	}
 	err := svc.AddSubject(context.Background(), sub)
 
 	assert.Error(t, err)
@@ -104,7 +125,7 @@ func TestGetAllSubjects(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, subjects, 1)
-	assert.Equal(t, "Test", subjects[0].Name)
+	assert.Equal(t, "Dr. Test", subjects[0].DoctorName)
 	assert.True(t, mockRepo.GetAllCalled)
 }
 
@@ -122,7 +143,14 @@ func TestUpdateSubject(t *testing.T) {
 	mockRepo := &MockSubjectRepo{}
 	svc := service.NewSubjectService(mockRepo)
 
-	sub := db.Subject{ID: "abc", Name: "Yeni", Age: 40}
+	sub := db.Subject{
+		ID:          "abc",
+		UserID:      "efe",
+		DoctorName:  "Dr. Yeni",
+		Date:        "2025-08-13",
+		Time:        "15:45",
+		Description: "Güncelleme",
+	}
 	err := svc.Update(context.Background(), sub)
 
 	assert.NoError(t, err)
@@ -137,7 +165,7 @@ func TestGetSubjectByID(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "xyz", result.ID)
-	assert.Equal(t, "Example", result.Name)
+	assert.Equal(t, "Dr. Example", result.DoctorName)
 	assert.True(t, mockRepo.GetByIDCalled)
 }
 
